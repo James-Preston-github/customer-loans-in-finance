@@ -25,9 +25,9 @@ class RDSDatabaseConnector:
             cur.execute("SELECT * FROM loan_payments")
             columns = [desc[0] for desc in cur.description]
             results_df = pd.DataFrame(cur.fetchall(), columns=columns)
-            return results_df
             cur.close()
             conn.close()
+            return results_df
             
 if __name__ == '__main__':
     class_instance = RDSDatabaseConnector(full_dataset)
