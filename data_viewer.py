@@ -18,7 +18,7 @@ columns_to_cat = ['verification_status', 'loan_status', 'purpose', ]
 columns_to_date = ['last_payment_date', 'next_payment_date', 'last_credit_pull_date', 'earliest_credit_line','issue_date']
 columns_to_int = ['term', 'employment_length']
 columns_that_should_be_skew_viewable = ['loan_amount','funded_amount','funded_amount_inv','term','int_rate','instalment','employment_length','annual_inc','dti','delinq_2yrs','mths_since_last_delinq','mths_since_last_record','open_accounts','total_accounts','out_prncp','out_prncp_inv','total_payment','total_payment_inv','total_rec_prncp','total_rec_int','total_rec_late_fee','recoveries','collection_recovery_fee','last_payment_amount','mths_since_last_major_derog']
-
+columns_with_skew = []
 
 def strip(swi):
     halfway = str(swi)[:2]
@@ -103,15 +103,6 @@ The standard deviation is {col.std()}''')
         return null_percentage
     def write_to_csv(self, filename):
         self.df.to_csv(filename)
-    def impute_missing_values(self, columns_to_impute_median=[], columns_to_impute_mean=[]):
-        for column in columns_to_impute_median:
-            col = self.df[column]
-            median_value = col.median()
-            self.df[column].fillna(median_value, inplace=True)
-        for column in columns_to_impute_mean:
-            mean_value = self.df[column].mean()
-            self.df[column].fillna(mean_value, inplace=True)
-    
 
 
 
@@ -122,10 +113,10 @@ def column_nulls(column):
     return eda.percent_of_nulls(column)
 
 class Plotter:
-    def __init__(self, data, columns_to_check_for_skew):
+    def __init__(self, data, impute_percentage=50):
         self.data = pd.read_csv(data)
         self.df = pd.DataFrame(self.data)
-        self.columns_to_check_for_skew = columns_to_check_for_skew
+        self.impute_percentage = impute_percentage
     def percent_of_nulls(self):
         total_rows = len(self.df)
         columns_to_drop = []
@@ -135,13 +126,13 @@ class Plotter:
             null_percentage = 100 * null_count / total_rows
             if null_percentage >= self.impute_percentage:
                 columns_to_drop.append(column_name)
-            elif null_percentage >0:
+            elif null_percentage >0 and pd.api.types.is_numeric_dtype(self.df[column_name]):
                 columns_to_impute.append(column_name)
                 print(f'{column_name} has {round(null_percentage, 2)} null percentage')
         print(f'the columns with over {self.impute_percentage}% nulls are {columns_to_drop}')
         return [columns_to_drop, columns_to_impute]
-    def skew_column_maker(self):
-        for column in self.columns_to_check_for_skew:
+    def skew_column_maker(self, columns_to_check_for_skew):
+        for column in columns_to_check_for_skew:
             skew = self.df[column].skew()
             if abs(skew) >= 1:
                 columns_with_skew.append(column)
@@ -153,14 +144,38 @@ class Plotter:
     def log_skew_corrector(self, column):
         log_population = self.df[column].map(lambda i: np.log(i) if i > 0 else 0)
         return log_population
+    def outlier_viewer(self, column):
+        plt.figure(figsize=(10, 5))
+        sns.boxplot(y=self.df[column], color='lightgreen', showfliers=True)
+        sns.swarmplot(y=self.df[column], color='black', size=5)
+        plt.title('Box plot with scatter points of floor plan area')
+        plt.show()
+    def boxplot(self, column_name):
+        sns.boxplot(x=self.df[column_name])
+        plt.title(f'Boxplot for {column_name}')
+        plt.show()
+    def swarmplot(self, column_name):
+        sns.swarmplot(x=self.df[column_name])
+        plt.title(f'Swarmplot for {column_name}')
+        plt.show()
+
+
+
 
 
 class DataFrameTransform:
-    def __init__(self, data, impute_percentage=50):
+    def __init__(self, data):
         self.data = pd.read_csv(data)
         self.df = pd.DataFrame(self.data)
-        self.impute_percentage = impute_percentage
-        
+    def impute_missing_values(self, columns_to_impute_median=[], columns_to_impute_mean=[]):
+        for column in columns_to_impute_median:
+            col = self.df[column]
+            median_value = col.median()
+            self.df[column].fillna(median_value, inplace=True)
+        for column in columns_to_impute_mean:
+            mean_value = self.df[column].mean()
+            self.df[column].fillna(mean_value, inplace=True)
+
     def dropper(self, columns_getting_dropped):
         for column in columns_getting_dropped:
             self.df.drop(column, axis=1, inplace=True)
@@ -169,10 +184,12 @@ class DataFrameTransform:
     def columns_to_mean_from_nulls(self, list_of_nulls):
         print(list_of_nulls)
         column_of_means = []
+        column_of_medians = [list_of_nulls[x] for x in range(0,5)]
         indices = list(input("Which indices of columns do you want to be mean imputed as a single number; i.e. 123 would be 1 and 2 and 3. :"))
         for index in indices:
             column_of_means.append(list_of_nulls[int(index)])
-        return column_of_means
+            column_of_medians.remove(list_of_nulls[int(index)])
+        return [column_of_means, column_of_medians]
     def log_correction_of_column(self,column):
         log_column = self.df[column].map(lambda i: np.log(i) if i > 0 else 0)
         return log_column
@@ -207,45 +224,75 @@ class DataFrameTransform:
         self.df.to_csv(filename)
 
 
-
-
-plotter = Plotter('DataTransform.csv', columns_that_should_be_skew_viewable)
+viewer = Plotter('DataTransform.csv')
+list_of_nulls = viewer.percent_of_nulls()[1]
+list_to_drop = viewer.percent_of_nulls()[0]
 analysis = DataFrameTransform('DataTransform.csv')
+columns_to_impute = analysis.columns_to_mean_from_nulls(list_of_nulls)
+columns_to_mean = columns_to_impute[0]
+columns_to_median = columns_to_impute[1]
+analysis.dropper(list_to_drop)
+analysis.impute_missing_values([],columns_to_mean)
+analysis.update_csv('DataTransformed.csv')
+
+viewer = Plotter('DataTransformed.csv')
+viewer.percent_of_nulls()
+for column in list_to_drop:
+    try:
+        columns_that_should_be_skew_viewable.remove(column)
+    except:
+        pass
+
+plotter = Plotter('DataTransformed.csv', columns_that_should_be_skew_viewable)
+analysis = DataFrameTransform('DataTransformed.csv')
 columns_with_skew = []
 columns_to_log_adjust = []
 columns_to_boxcox_adjust = []
 columns_to_yeo_adjust = []
 yeo_skews = []
-columns_with_skew = plotter.skew_column_maker()
+columns_with_skew = plotter.skew_column_maker(columns_that_should_be_skew_viewable)
 print(columns_with_skew)
-
+print(analysis.df['annual_inc'].skew())
 for column in columns_with_skew:
     column_skew_initial = analysis.df[column].skew()
     log_skew = (analysis.log_correction_of_column(column)).skew()
     boxcox_skew = (analysis.boxcox_correction_of_column(column)).skew()
     yeo_skew = analysis.yeo_correction_of_column(column).skew()
+    if column == 'annual_inc':
+        print(yeo_skew)
     list_of_skews = [abs(column_skew_initial), abs(log_skew), abs(boxcox_skew), abs(yeo_skew)]
     min_skew_value = min(list_of_skews)
-    if min_skew_value == column_skew_initial:
+    if column == 'annual_inc':
+        print(min_skew_value)
+    if min_skew_value == abs(column_skew_initial):
         pass
-    elif min_skew_value == log_skew:
+    elif min_skew_value == abs(log_skew):
         columns_to_log_adjust.append(column)
-    elif min_skew_value == boxcox_skew:
+        print(f'{column} is log')
+    elif min_skew_value == abs(boxcox_skew):
         columns_to_boxcox_adjust.append(column)
         print(f'appended {column}')
-    elif min_skew_value == yeo_skew:
+    elif min_skew_value == abs(yeo_skew):
         columns_to_yeo_adjust.append(column)
+        print(f'{column} is yeo')
         yeo_skews.append([yeo_skew, column_skew_initial])
     #print(f'{log_skew} is the new skew, the old one was {plotter.skew_viewer(column)}')
 #print(f'The columns to log skew adjust are {columns_to_log_adjust}') 
 #analysis.log_correcting(columns_to_log_adjust)
+print(columns_to_yeo_adjust, columns_to_log_adjust, columns_to_boxcox_adjust)
 analysis.boxcox_correcting(columns_to_boxcox_adjust)
 analysis.yeo_correcting(columns_to_yeo_adjust)
 analysis.update_csv('skew_removed.csv')
+skew_and_outlier_checker = Plotter('skew_removed.csv')
+for column in columns_that_should_be_skew_viewable:
+    print(skew_and_outlier_checker.skew_viewer(column), column)
+skew_and_outlier_checker.boxplot('annual_inc')
+skew_and_outlier_checker.swarmplot('annual_inc')
+
+
 '''for column in columns_to_yeo_adjust:
     t=sns.histplot(analysis.df[column],label="Skewness: %.2f"%(analysis.df[column].skew()) )
     t.legend()
     plt.show()'''
 '''for column in columns_to_log_adjust:
     print(f'skew is now {analysis.df[column].skew()}')'''
-
