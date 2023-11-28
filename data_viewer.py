@@ -54,6 +54,8 @@ class DataTransform:
             df[column] = pd.to_datetime(df[column], format=date_format)
     def convert_to_int(self):
         df[columns_to_int] = df[columns_to_int].map(strip)
+    def type_df(self):
+        print(type(self.df))
     def make_into_DataFrame(self):
         return pd.DataFrame(self.df)
     def write_to_csv(self, filename):
@@ -67,6 +69,7 @@ eda_DataTransform.convert_to_bool()
 eda_DataTransform.convert_to_cat()
 eda_DataTransform.convert_to_date()
 eda_DataTransform.convert_to_int()
+eda_DataTransform.type_df()
 eda_as_df = eda_DataTransform.make_into_DataFrame()
 eda_DataTransform.write_to_csv('DataTransform.csv')
 
@@ -287,7 +290,7 @@ skew_and_outlier_checker = Plotter('skew_removed.csv')
 for column in columns_that_should_be_skew_viewable:
     print(skew_and_outlier_checker.skew_viewer(column), column)
 skew_and_outlier_checker.boxplot('annual_inc')
-skew_and_outlier_checker.swarmplot('annual_inc')
+skew_and_outlier_checker.swarmplot('')
 
 
 '''for column in columns_to_yeo_adjust:
