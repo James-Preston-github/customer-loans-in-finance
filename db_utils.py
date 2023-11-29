@@ -25,12 +25,16 @@ class RDSDatabaseConnector:
             cur.execute("SELECT * FROM loan_payments")
             columns = [desc[0] for desc in cur.description]
             results_df = pd.DataFrame(cur.fetchall(), columns=columns)
+            return results_df
             cur.close()
             conn.close()
-            return results_df
             
 if __name__ == '__main__':
     class_instance = RDSDatabaseConnector(full_dataset)
     loan_payments = class_instance.extract_dataframe()
     loan_payments.to_csv('loan_payments.csv')
     print(loan_payments.head())
+
+import sys
+print(sys.version)
+print ('\n'.join(sys.path))
