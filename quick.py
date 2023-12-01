@@ -183,7 +183,7 @@ def numeric_columns_correlation(df):
 corr_df = numeric_columns_correlation(df)
 #px.imshow(corr_df[1].corr(), title="Correlation heatmap of student dataframe")
 correlat = DataFrameTransform(df)
-removed_correlation_columns = correlat.columns_to_drop(corr_df[0],0.98)
+removed_correlation_columns = correlat.columns_to_drop(corr_df[0],0.99)
 
 print(removed_correlation_columns)
 
@@ -192,6 +192,11 @@ df.drop('Unnamed: 0', axis=1, inplace=True)
 dropper = set([])
 for pair in removed_correlation_columns:
     dropper.add(pair[0])
+    print(dropper)
 for column in dropper:
     df.drop(column, axis=1, inplace=True)
     print(f'dropping {column}')
+
+
+plot = Plotter(df)
+plot.percent_of_nulls()
