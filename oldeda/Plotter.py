@@ -13,72 +13,72 @@ from pandas.tseries.offsets import DateOffset
 
 
 class Plotter:
-    def __init__(self, df):
-        self.df = df
+    def __init__(self):
+        print('ready for action')
 
-    def percent_of_nulls(self, impute_percentage=50):
-        total_rows = len(self.df)
+    def percent_of_nulls(self, df, impute_percentage=50):
+        total_rows = len(df)
         columns_to_drop = []
         columns_to_impute = []
-        for column_name, values in self.df.items():
+        for column_name, values in df.items():
             null_count = values.isnull().sum()
             null_percentage = 100 * null_count / total_rows
             if null_percentage >= impute_percentage:
                 columns_to_drop.append(column_name)
-            elif null_percentage >0 and pd.api.types.is_numeric_dtype(self.df[column_name]):
+            elif null_percentage > 0 and pd.api.types.is_numeric_dtype(df[column_name]):
                 columns_to_impute.append(column_name)
                 print(f'{column_name} has {round(null_percentage, 2)} null percentage')
         print(f'the columns with over {impute_percentage}% nulls are {columns_to_drop}')
         return [columns_to_drop, columns_to_impute]
     
-    def skew_column_maker(self, columns_to_check_for_skew):
+    def skew_column_maker(self, df, columns_to_check_for_skew):
         columns_with_skew = []
         for column in columns_to_check_for_skew:
-            skew = self.df[column].skew()
+            skew = df[column].skew()
             if abs(skew) >= 1:
                 columns_with_skew.append(column)
             else:
                 pass
         return columns_with_skew
     
-    def skew_viewer(self, column):
-        return self.df[column].skew()
+    def skew_viewer(self, df, column):
+        return df[column].skew()
     
-    def log_skew_corrector(self, column):
-        log_population = self.df[column].map(lambda i: np.log(i) if i > 0 else 0)
+    def log_skew_corrector(self, df, column):
+        log_population = df[column].map(lambda i: np.log(i) if i > 0 else 0)
         return log_population
     
-    def multi_hist_plot(self, num_cols):
+    def multi_hist_plot(self, df, num_cols):
         sns.set(font_scale=0.7)
-        f = pd.melt(self.df, value_vars=num_cols)
+        f = pd.melt(df, value_vars=num_cols)
         g = sns.FacetGrid(f, col="variable", col_wrap=4,
                           sharex=False, sharey=False)
         g = g.map(sns.histplot, "value", kde=True)
         pyplot.show()
     
-    def qq_plot(self, col):
-        self.df.sort_values(by=col, ascending=True)
+    def qq_plot(self, df, col):
+        df.sort_values(by=col, ascending=True)
         qq_plot = qqplot(self.df[col], scale=1, line='q')
         pyplot.show()
 
     
-    def multi_qq_plot(self, cols):
+    def multi_qq_plot(self, df, cols):
         remainder = 1 if len(cols) % 4 != 0 else 0
         rows = int(len(cols) / 4 + remainder)
 
         fig, axes = pyplot.subplots(
             ncols=4, nrows=rows, sharex=False, figsize=(6, 3))
         for col, ax in zip(cols, np.ravel(axes)):
-            sm.qqplot(self.df[col], line='s', ax=ax, fit=True)
+            sm.qqplot(df[col], line='s', ax=ax, fit=True)
             ax.set_title(f'{col} QQ Plot')
         pyplot.tight_layout()
 
-    def missing_nulls_vis(self):
-        msno.matrix(self.df)
+    def missing_nulls_vis(self, df):
+        msno.matrix(df)
         pyplot.show()
 
-    def correlated_vars(self, cols):
-        corr = self.df[cols].corr()
+    def correlated_vars(self, df, cols):
+        corr = df[cols].corr()
         mask = np.zeros_like(corr)
         mask[np.triu_indices_from(mask)] = True
         pyplot.figure(figsize=(10, 8))
@@ -92,8 +92,8 @@ class Plotter:
         pyplot.show()
 
 
-    def columns_to_drop(self, cols, corr_thresh=0.9):
-        corr_df = self.df[cols].corr()
+    def columns_to_drop(self, df, cols, corr_thresh=0.9):
+        corr_df = df[cols].corr()
         columns_mask = np.abs(corr_df) >= corr_thresh
         np.fill_diagonal(columns_mask.values, False)
         columns_mask = np.triu(columns_mask)
@@ -113,18 +113,18 @@ class Plotter:
         
         return corr_col_list
     
-    def final_payment_date(self):
-        self.df['final_date'] = self.df['issue_date'] + DateOffset(months = self.df['term'], axis=1)
-        return self.df
+    def final_payment_date(self, df):
+        self.df['final_date'] = df['issue_date'] + DateOffset(months = df['term'], axis=1)
+        return df
     
 
-    def zscore_maker(self):
+    def zscore_maker(self, df):
         def calculate_zscores(entry):
             if pd.api.types.is_numeric_dtype(entry):
                 return zscore(entry)
             else:
                 return 0
-        zscore_df = pd.DataFrame.copy(self.df).apply(calculate_zscores)
+        zscore_df = pd.DataFrame.copy( df).apply(calculate_zscores)
         zscore_df = zscore_df.map(lambda y: 0.0 if y<2.0 else y) 
         return zscore_df
     
@@ -133,9 +133,9 @@ class Plotter:
 class Charts:
     def __init__(self):
         self = self
-    def pie_charts(self, labels :list, list_of_data: list, title: str=None):
-        pyplot.pie(list_of_data, labels=labels, autopct='%1.1f%%') 
-        if title != None:
+    def pie_charts(self, labels: list, list_of_data: list, title: str = None):
+        pyplot.pie(list_of_data, labels=labels, autopct='%1.1f%%')
+        if title is not None:
             pyplot.title(title)
         pyplot.show()
         
@@ -143,9 +143,9 @@ class Charts:
         percent = 100* nom/den
         return percent
     
-    def revenue_lost_by_month(self, DataFrame: pd.DataFrame):
+    def revenue_lost_by_month(self, df):
 
-        df = DataFrame.copy()
+        df = df.copy()
 
         df['term_completed'] = (df['last_payment_date'] - df['issue_date']) 
         df['term_completed'] = df['term_completed'].dt.days 
