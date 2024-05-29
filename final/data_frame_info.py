@@ -95,7 +95,7 @@ class DataFrameInfo:
         Returns:
             filtered_df (pd.DataFrame): contains list of distinct values, the count and datatype of each selected column. Filtered as desired.
         '''
-        column_info = self.column_info_dataframe(dataframe, column = None)
+        column_info = self.column_info_dataframe(dataframe)
         filtered_df = column_info.loc[column_info[column_to_filter].isin(vaules_to_filter)]
         return filtered_df
 
